@@ -64,10 +64,23 @@ int main() {
   // Randomly generate x
   vector<float> x(N);
   generate_n(x.begin(), N, [&dist, &gen]() { return dist(gen); });
-  vector<float> y_ref(M);
-  generate_n(y_ref.begin(), M, [&dist, &gen]() { return dist(gen); });
+
+  // Reference
+  vector<float> y_ref(M, 0.0f);
+  for (int i = 0; i < num_block_rows; ++i) {
+    for (int j = rowptr[i]; j < rowptr[i + 1]; ++j) {
+      for (int ii = 0; ii < BS; ++ii) {
+        for (int jj = 0; jj < BS; ++jj) {
+          y_ref[i * BS + ii] +=
+              values[(j * BS + ii) * BS + jj] * x[colidx[j] * BS + jj];
+        }
+      }
+    }
+  }
 
   // MKL BSR
+  vector<float> y_mkl(M);
+  generate_n(y_mkl.begin(), M, [&dist, &gen]() { return dist(gen); });
   constexpr int NUM_ITER = 16;
   constexpr int NUM_WARMUP = 1;
   chrono::time_point<chrono::system_clock> t_begin, t_end;
@@ -83,15 +96,16 @@ int main() {
         rowptr.data(),
         colidx.data(),
         x.data(),
-        y_ref.data());
+        y_mkl.data());
   }
   t_end = chrono::system_clock::now();
   double dt = chrono::duration<double>(t_end - t_begin).count();
-  cout << "MKL BCSR Effective GF/s " << (2. * M * N * NUM_ITER) / dt / 1e9 << endl;
+  cout << "MKL BCSR Effective GF/s " << (2. * M * N * NUM_ITER) / dt / 1e9
+       << endl;
 
   // MKL inspector-executor BSR
-  vector<float> y(M);
-  generate_n(y.begin(), M, [&dist, &gen]() { return dist(gen); });
+  vector<float> y_mkl_ie(M);
+  generate_n(y_mkl_ie.begin(), M, [&dist, &gen]() { return dist(gen); });
   sparse_matrix_t a_handle;
   sparse_status_t ret = mkl_sparse_s_create_bsr(
       &a_handle,
@@ -127,7 +141,7 @@ int main() {
         {.type = SPARSE_MATRIX_TYPE_GENERAL},
         x.data(),
         0.0f,
-        y.data());
+        y_mkl_ie.data());
     assert(ret == SPARSE_STATUS_SUCCESS);
   }
   t_end = chrono::system_clock::now();
@@ -136,13 +150,16 @@ int main() {
        << endl;
 
   float atol = 1e-5, rtol = 1e-5;
-  for (int i = 0; i < y.size(); ++i) {
-    float expected = y_ref[i];
-    float actual = y[i];
-    float error = fabs(actual - expected);
-    if (error > atol && error / fabs(expected) > rtol) {
-      cerr << "Correctness check failed at " << i << ": actual " << actual
-           << " expected " << expected << endl;
+  for (int i = 0; i < y_ref.size(); ++i) {
+    float mkl_error = fabs(y_mkl[i] - y_ref[i]);
+    float mkl_ie_error = fabs(y_mkl_ie[i] - y_ref[i]);
+    if (mkl_error > atol && mkl_error / fabs(y_ref[i]) > rtol) {
+      cerr << "Results differ at " << i << ": mkl " << y_mkl[i] << " ref "
+           << y_ref[i] << endl;
+    }
+    if (mkl_ie_error > atol && mkl_ie_error / fabs(y_ref[i]) > rtol) {
+      cerr << "Results differ at " << i << ": mkl_ie " << y_mkl_ie[i] << " ref "
+           << y_ref[i] << endl;
     }
   }
 
