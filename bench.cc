@@ -90,7 +90,7 @@ int main() {
   cout << "MKL BCSR Effective GF/s " << (M * N * NUM_ITER) / dt / 1e9 << endl;
 
   // MKL inspector-executor BSR
-  vector<float> y(y_ref.size());
+  vector<float> y(M);
   generate_n(y.begin(), M, [&dist, &gen]() { return dist(gen); });
   sparse_matrix_t a_handle;
   sparse_status_t ret = mkl_sparse_s_create_bsr(
