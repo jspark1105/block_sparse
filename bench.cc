@@ -87,7 +87,7 @@ int main() {
   }
   t_end = chrono::system_clock::now();
   double dt = chrono::duration<double>(t_end - t_begin).count();
-  cout << "MKL BCSR Effective GF/s " << (M * N * NUM_ITER) / dt / 1e9 << endl;
+  cout << "MKL BCSR Effective GF/s " << (2. * M * N * NUM_ITER) / dt / 1e9 << endl;
 
   // MKL inspector-executor BSR
   vector<float> y(M);
@@ -132,7 +132,7 @@ int main() {
   }
   t_end = chrono::system_clock::now();
   dt = chrono::duration<double>(t_end - t_begin).count();
-  cout << "MKL IE BCSR Effective GF/s " << (M * N * NUM_ITER) / dt / 1e9
+  cout << "MKL IE BCSR Effective GF/s " << (2. * M * N * NUM_ITER) / dt / 1e9
        << endl;
 
   float atol = 1e-5, rtol = 1e-5;
