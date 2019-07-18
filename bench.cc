@@ -63,8 +63,9 @@ int main() {
 
   // Randomly generate x
   vector<float> x(N);
-  generate_n(x.begin(), BS * BS, [&dist, &gen]() { return dist(gen); });
+  generate_n(x.begin(), N, [&dist, &gen]() { return dist(gen); });
   vector<float> y_ref(M);
+  generate_n(y_ref.begin(), M, [&dist, &gen]() { return dist(gen); });
 
   // MKL BSR
   constexpr int NUM_ITER = 16;
@@ -90,6 +91,7 @@ int main() {
 
   // MKL inspector-executor BSR
   vector<float> y(y_ref.size());
+  generate_n(y.begin(), M, [&dist, &gen]() { return dist(gen); });
   sparse_matrix_t a_handle;
   sparse_status_t ret = mkl_sparse_s_create_bsr(
       &a_handle,
